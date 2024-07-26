@@ -1,0 +1,291 @@
+version: "3.9"
+services:
+  # letsencrypt certbot 80포트 인증을 위한 임시 구동 어플리케이션 
+  cert-app:
+    container_name: project_base_cert_app
+    image: node:20.10-alpine3.18
+    user: "${DOCKER_USER}:${DOCKER_GROUP}"
+    working_dir: /home/${PROJECT_BASE_USER}/${PROJECT_BASE_NAME}/certbot-${PROJECT_BASE_NAME}/cert-app
+    env_file:
+      - ${PROJECT_ENV_FILE}
+    ports:
+      - 80:80
+    volumes:
+      - ${PROJECT_CERTBOT_PATH}/cert-app:/home/${PROJECT_BASE_USER}/${PROJECT_BASE_NAME}/certbot-${PROJECT_BASE_NAME}/cert-app
+      - ${PROJECT_SHARED_VOLUME_PATH}/secret/certbot/data:/home/${PROJECT_BASE_USER}/${PROJECT_BASE_NAME}/certbot-${PROJECT_BASE_NAME}/cert-app/shared/secret/certbot/data
+    command: >
+      sh -c "yarn install &&
+             yarn global add pm2 &&
+             yarn build &&
+             yarn pm2"
+    # connect:
+    #   - project_base_kafka1
+    #   - project_base_kafka2
+    #   - project_base_kafka3
+
+
+  mysql:
+    image: mysql:5.7
+    container_name: project_base_mysql
+    env_file:
+      - ${PROJECT_ENV_FILE}
+    environment:
+      MYSQL_USER: ${PROJECT_MYSQL_USER}
+      MYSQL_PASSWORD: ${PROJECT_MYSQL_PASSWORD}
+      MYSQL_ROOT_PASSWORD: ${PROJECT_MYSQL_ROOT_PASSWORD}
+      MYSQL_DATABASE: ${PROJECT_MYSQL_DATABASE}
+      # MYSQL_URI: mysql://mysql:3306
+      # MYSQL_HOST: localhost
+    volumes:
+      - ${PROJECT_MYSQL_PATH}/data/mysql/db:/var/lib/mysql
+      - ${PROJECT_MYSQL_PATH}/data/mysql/setting/my.cnf:/etc/my.cnf
+      - ${PROJECT_MYSQL_PATH}/data/mysql/initdb.d:/docker-entrypoint-initdb.d
+    ports:
+      - ${PROJECT_MYSQL_PORT}:3306
+    # extra_hosts:
+    #   - "host.docker.internal:host-gateway"
+    #   - "host.docker.internal:172.18.0.1"
+    expose:
+      - ${PROJECT_MYSQL_PORT}
+    restart: always
+    # networks:
+    #   - backend-network
+    # network_mode: "host"
+  
+  mongodb:
+    image: mongo
+    container_name: project_base_mongodb
+    ports:
+      - ${PROJECT_MONGO_PORT}:27017
+    volumes:
+      - ${PROJECT_MONGODB_PATH}/data/db:/data/db
+    environment:
+      - MONGO_INITDB_ROOT_USERNAME=${PROJECT_MONGO_INITDB_ROOT_USERNAME}
+      - MONGO_INITDB_ROOT_PASSWORD=${PROJECT_MONGO_INITDB_ROOT_PASSWORD}
+      - MONGODB_URI=mongodb://mongodb:27017
+    restart: always
+    # networks:
+    #   - backend-network
+    # network_mode: "host"
+  
+  redis:
+    # 사용할 이미지
+    image: redis:latest
+    # 컨테이너명
+    container_name: project_base_redis
+    # 접근 포트 설정(컨테이너 외부:컨테이너 내부)
+    ports:
+      - ${PROJECT_REDIS_PORT}:6379
+    env_file:
+      - ${PROJECT_ENV_FILE}
+    # extra_hosts:
+    #   - "host.docker.internal:host-gateway"
+    # 스토리지 마운트(볼륨) 설정
+    volumes:
+      - ${PROJECT_REDIS_PATH}/data:/data
+      - ${PROJECT_CONF_FILE}:/usr/local/etc/redis/redis.conf
+    # 컨테이너에 docker label을 이용해서 메타데이터 추가
+    labels:
+      - "name=redis"
+      - "mode=standalone"
+    # 컨테이너 종료시 재시작 여부 설정
+    restart: unless-stopped
+    command: redis-server /usr/local/etc/redis/redis.conf --requirepass ${PROJECT_REDIS_PASSWORD} --bind ${PROJECT_REDIS_BIND} --appendonly yes
+    # command: redis-server /usr/local/etc/redis/redis.conf && redis-server --requirepass ${PROJECT_REDIS_PASSWORD}
+    # networks:
+    #   - backend-network
+    # network_mode: "host"
+
+  zookeeper:
+    container_name: project_base_zookeeper
+    image: confluentinc/cp-zookeeper:latest
+    environment:
+      ZOOKEEPER_CLIENT_PORT: ${ZOOKEEPER_CLIENT_PORT}
+      # KAFKA_OPTS: "-Xms320M -Xmx640M -XX:-TieredCompilation -XX:+UseStringDeduplication -noverify"
+      KAFKA_OPTS: -Djava.security.auth.login.config=/etc/kafka/secrets/zookeeper_server_jaas.conf
+        -Dquorum.auth.enableSasl=true
+        -Dquorum.auth.learnerRequireSasl=true
+        -Dquorum.auth.serverRequireSasl=true
+        -Dquorum.cnxn.threads.size=20
+        -Dzookeeper.authProvider.1=org.apache.zookeeper.server.auth.SASLAuthenticationProvider
+        -Dzookeeper.authProvider.2=org.apache.zookeeper.server.auth.DigestAuthenticationProvider
+        -DjaasLoginRenew=3600000
+        -DrequireClientAuthScheme=sasl
+        -Dquorum.auth.learner.loginContext=QuorumLearner
+        -Dquorum.auth.server.loginContext=QuorumServer
+        -Xms320M 
+        -Xmx640M 
+        -XX:-TieredCompilation 
+        -XX:+UseStringDeduplication 
+        -noverify
+    ports:
+      - ${ZOOKEEPER_CLIENT_PORT}:${ZOOKEEPER_CLIENT_PORT}
+    restart: unless-stopped
+    # networks:
+    #   - backend-network
+    # network_mode: "host"
+    volumes:
+      - ${PROJECT_KAFKA_PATH}/data/zookeeper/data:/var/lib/zookeeper/data
+      - ${PROJECT_KAFKA_PATH}/data/zookeeper/datalog:/var/lib/zookeeper/log
+      - ${KAFKA_SASL_SCRAM_SECRETS_DIR}/zookeeper_server_jaas.conf:/etc/kafka/secrets/zookeeper_server_jaas.conf
+
+  # zookeeper에 카프카 유저 scram 추가 
+  zookeeper-add-kafka-users:
+    image: confluentinc/cp-kafka:latest
+    container_name: "zookeeper-add-kafka-users"
+    depends_on:
+      - zookeeper
+    command: "bash -c 'echo Waiting for Zookeeper to be ready... && \
+                          cub zk-ready ${KAFKA_ZOOKEEPER_CONNECT} 120 && \
+                          kafka-configs --zookeeper ${KAFKA_ZOOKEEPER_CONNECT} --alter --add-config 'SCRAM-SHA-256=[iterations=4096,password=${KAFKA_USER_PASSORD_FOR_BROKER}]' --entity-type users --entity-name ${KAFKA_USER_NAME_FOR_BROKER} && \
+                          kafka-configs --zookeeper ${KAFKA_ZOOKEEPER_CONNECT} --alter --add-config 'SCRAM-SHA-256=[iterations=4096,password=${KAFKA_USER_PASSORD_FOR_CLIENT}]' --entity-type users --entity-name ${KAFKA_USER_NAME_FOR_CLIENT} '"
+    environment:
+      KAFKA_BROKER_ID: ignored
+      KAFKA_ZOOKEEPER_CONNECT: ignored
+      KAFKA_OPTS: -Djava.security.auth.login.config=/etc/kafka/secrets/zookeeper_client_jaas.conf
+    volumes:
+      - ${KAFKA_SASL_SCRAM_SECRETS_DIR}/zookeeper_client_jaas.conf:/etc/kafka/secrets/zookeeper_client_jaas.conf
+
+  kafka1:
+    container_name: project_base_kafka1
+    image: confluentinc/cp-kafka:latest
+    depends_on:
+      - zookeeper
+    # extra_hosts:
+    #   - "host.docker.internal:host-gateway"
+    ports:
+      - ${KAFKA_PORT_EXTERNAL1}:${KAFKA_PORT_EXTERNAL1}
+    environment:
+      # KAFKA_BROKER_ID: 1001
+      KAFKA_ZOOKEEPER_CONNECT: ${KAFKA_ZOOKEEPER_CONNECT}
+      KAFKA_LISTENERS: ${KAFKA_LISTENERS_CLIENT1},${KAFKA_LISTENERS_EXTERNAL1}
+      KAFKA_ADVERTISED_LISTENERS: ${KAFKA_ADVERTISED_LISTENERS_CLIENT1},${KAFKA_ADVERTISED_LISTENERS_EXTERNAL1}
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: ${KAFKA_LISTENER_SECURITY_PROTOCOL_MAP1}
+      KAFKA_INTER_BROKER_LISTENER_NAME: ${KAFKA_INTER_BROKER_LISTENER_NAME1}
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: ${KAFKA_AUTO_CREATE_TOPICS_ENABLE1}
+      KAFKA_ADVERTISED_HOST_NAME: ${KAFKA_ADVERTISED_HOST_NAME}
+      # KAFKA_AUTHORIZERS: org.apache.kafka.server.authorizer.SimpleAclAuthorizer
+      # KAFKA_AUTHORIZER_PROPERTIES: "allow.hosts=${SERVER_HOST},127.0.0.1"
+      KAFKA_SASL_ENABLED_MECHANISMS: SCRAM-SHA-256
+      KAFKA_SASL_MECHANISM_INTER_BROKER_PROTOCOL: SCRAM-SHA-256
+      # KAFKA_SECURITY_INTER_BROKER_PROTOCOL: SASL_SSL
+      KAFKA_SUPER_USERS: ${KAFKA_SUPER_USERS}
+      KAFKA_ZOOKEEPER_SASL_ENABLED: "true"
+      KAFKA_ZOOKEEPER_SET_ACL: "true"
+      # KAFKA_AUTHORIZER_CLASS_NAME: kafka.security.auth.SimpleAclAuthorizer
+      # KAFKA_ALLOW_EVERYONE_IF_NO_ACL_FOUND: "false"
+      KAFKA_OPTS: 
+        -Dzookeeper.sasl.client=true
+        -Dzookeeper.sasl.clientconfig=Client
+        -Djava.security.auth.login.config=/etc/kafka/secrets/conf/kafka_server_jaas.conf
+    restart: unless-stopped
+    # networks:
+    #   - backend-network
+    # network_mode: "host"
+    volumes:
+      - ${PROJECT_KAFKA_PATH}/data/kafka/kafka1/data:/var/lib/kafka/data
+      - ${KAFKA_SASL_SCRAM_SECRETS_DIR}:/etc/kafka/secrets/conf
+
+  kafka2:
+    container_name: project_base_kafka2
+    image: confluentinc/cp-kafka:latest
+    depends_on:
+      - zookeeper
+    # extra_hosts:
+    #   - "host.docker.internal:host-gateway"
+    ports:
+      - ${KAFKA_PORT_EXTERNAL2}:${KAFKA_PORT_EXTERNAL2}
+    environment:
+      # KAFKA_BROKER_ID: 1002
+      KAFKA_ZOOKEEPER_CONNECT: ${KAFKA_ZOOKEEPER_CONNECT}
+      KAFKA_LISTENERS: ${KAFKA_LISTENERS_CLIENT2},${KAFKA_LISTENERS_EXTERNAL2}
+      KAFKA_ADVERTISED_LISTENERS: ${KAFKA_ADVERTISED_LISTENERS_CLIENT2},${KAFKA_ADVERTISED_LISTENERS_EXTERNAL2}
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: ${KAFKA_LISTENER_SECURITY_PROTOCOL_MAP2}
+      KAFKA_INTER_BROKER_LISTENER_NAME: ${KAFKA_INTER_BROKER_LISTENER_NAME2}
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: ${KAFKA_AUTO_CREATE_TOPICS_ENABLE2}
+      KAFKA_ADVERTISED_HOST_NAME: ${KAFKA_ADVERTISED_HOST_NAME}
+      # KAFKA_AUTHORIZERS: org.apache.kafka.server.authorizer.SimpleAclAuthorizer
+      # KAFKA_AUTHORIZER_PROPERTIES: "allow.hosts=${SERVER_HOST},127.0.0.1"
+      KAFKA_SASL_ENABLED_MECHANISMS: SCRAM-SHA-256
+      KAFKA_SASL_MECHANISM_INTER_BROKER_PROTOCOL: SCRAM-SHA-256
+      # KAFKA_SECURITY_INTER_BROKER_PROTOCOL: SASL_SSL
+      KAFKA_SUPER_USERS: ${KAFKA_SUPER_USERS}
+      KAFKA_ZOOKEEPER_SASL_ENABLED: "true"
+      KAFKA_ZOOKEEPER_SET_ACL: "true"
+      # KAFKA_AUTHORIZER_CLASS_NAME: kafka.security.auth.SimpleAclAuthorizer
+      # KAFKA_ALLOW_EVERYONE_IF_NO_ACL_FOUND: "false"
+      KAFKA_OPTS: 
+        -Dzookeeper.sasl.client=true
+        -Dzookeeper.sasl.clientconfig=Client
+        -Djava.security.auth.login.config=/etc/kafka/secrets/conf/kafka_server_jaas.conf
+    restart: unless-stopped
+    # networks:
+    #   - backend-network
+    # network_mode: "host"
+    volumes:
+      - ${PROJECT_KAFKA_PATH}/data/kafka/kafka2/data:/var/lib/kafka/data
+      - ${KAFKA_SASL_SCRAM_SECRETS_DIR}:/etc/kafka/secrets/conf
+
+  kafka3:
+    container_name: project_base_kafka3
+    image: confluentinc/cp-kafka:latest
+    depends_on:
+      - zookeeper
+    # extra_hosts:
+    #   - "host.docker.internal:host-gateway"
+    ports:
+      - ${KAFKA_PORT_EXTERNAL3}:${KAFKA_PORT_EXTERNAL3}
+    environment:
+      # KAFKA_BROKER_ID: 1003
+      KAFKA_ZOOKEEPER_CONNECT: ${KAFKA_ZOOKEEPER_CONNECT}
+      KAFKA_LISTENERS: ${KAFKA_LISTENERS_CLIENT3},${KAFKA_LISTENERS_EXTERNAL3}
+      KAFKA_ADVERTISED_LISTENERS: ${KAFKA_ADVERTISED_LISTENERS_CLIENT3},${KAFKA_ADVERTISED_LISTENERS_EXTERNAL3}
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: ${KAFKA_LISTENER_SECURITY_PROTOCOL_MAP3}
+      KAFKA_INTER_BROKER_LISTENER_NAME: ${KAFKA_INTER_BROKER_LISTENER_NAME3}
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: ${KAFKA_AUTO_CREATE_TOPICS_ENABLE3}
+      KAFKA_ADVERTISED_HOST_NAME: ${KAFKA_ADVERTISED_HOST_NAME}
+      # KAFKA_AUTHORIZERS: org.apache.kafka.server.authorizer.SimpleAclAuthorizer
+      # KAFKA_AUTHORIZER_PROPERTIES: "allow.hosts=${SERVER_HOST},127.0.0.1"
+      KAFKA_SASL_ENABLED_MECHANISMS: SCRAM-SHA-256
+      KAFKA_SASL_MECHANISM_INTER_BROKER_PROTOCOL: SCRAM-SHA-256
+      # KAFKA_SECURITY_INTER_BROKER_PROTOCOL: SASL_SSL
+      KAFKA_SUPER_USERS: ${KAFKA_SUPER_USERS}
+      KAFKA_ZOOKEEPER_SASL_ENABLED: "true"
+      KAFKA_ZOOKEEPER_SET_ACL: "true"
+      # KAFKA_AUTHORIZER_CLASS_NAME: kafka.security.auth.SimpleAclAuthorizer
+      # KAFKA_ALLOW_EVERYONE_IF_NO_ACL_FOUND: "false"
+      KAFKA_OPTS: 
+        -Dzookeeper.sasl.client=true
+        -Dzookeeper.sasl.clientconfig=Client
+        -Djava.security.auth.login.config=/etc/kafka/secrets/conf/kafka_server_jaas.conf
+    restart: unless-stopped
+    # networks:
+    #   - backend-network
+    # network_mode: "host"
+    volumes:
+      - ${PROJECT_KAFKA_PATH}/data/kafka/kafka3/data:/var/lib/kafka/data
+      - ${KAFKA_SASL_SCRAM_SECRETS_DIR}:/etc/kafka/secrets/conf
+
+  kafdrop:
+    container_name: project_base_kafdrop
+    image: obsidiandynamics/kafdrop:latest
+    ports:
+      - ${SERVER_PORT}:${SERVER_PORT}
+    environment:
+      KAFKA_BROKERCONNECT: ${KAFKA_BROKERCONNECT}
+      JVM_OPTS: ${JVM_OPTS}
+      SERVER_PORT: ${SERVER_PORT}
+      MANAGEMENT_SERVER_PORT: ${MANAGEMENT_SERVER_PORT}
+      # SCHEMAREGISTRY_AUTH: "${SCHEMAREGISTRY_AUTH_USER}:${SCHEMAREGISTRY_AUTH_PASSWORD}"
+    depends_on:
+      - zookeeper
+      - kafka1
+      - kafka2
+      - kafka3
+    # networks:
+    #   - backend-network
+    # network_mode: "host"
+
+# networks:
+#   backend-network:
+#     driver: bridge

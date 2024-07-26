@@ -1,0 +1,29 @@
+version: "3.9"
+services:
+  mysql:
+    image: mysql:5.7
+    container_name: project_base_mysql
+    env_file:
+      - ${PROJECT_ENV_FILE}
+    environment:
+      MYSQL_USER: ${PROJECT_MYSQL_USER}
+      MYSQL_PASSWORD: ${PROJECT_MYSQL_PASSWORD}
+      MYSQL_ROOT_PASSWORD: ${PROJECT_MYSQL_ROOT_PASSWORD}
+      MYSQL_DATABASE: ${PROJECT_MYSQL_DATABASE}
+      # MYSQL_URI: mysql://mysql:3306
+      # MYSQL_HOST: localhost
+    volumes:
+      - ${PROJECT_MYSQL_PATH}/data/mysql/db:/var/lib/mysql
+      - ${PROJECT_MYSQL_PATH}/data/mysql/setting/my.cnf:/etc/my.cnf
+      - ${PROJECT_MYSQL_PATH}/data/mysql/initdb.d:/docker-entrypoint-initdb.d
+    ports:
+      - ${PROJECT_MYSQL_PORT}:3306
+    # extra_hosts:
+    #   - "host.docker.internal:host-gateway"
+    #   - "host.docker.internal:172.18.0.1"
+    expose:
+      - ${PROJECT_MYSQL_PORT}
+    restart: always
+    # networks:
+    #   - backend-network
+    # network_mode: "host"

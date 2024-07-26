@@ -1,0 +1,20 @@
+version: "3.9"
+services:
+  # letsencrypt certbot 80포트 인증을 위한 임시 구동 어플리케이션 
+  cert-app:
+    container_name: project_base_cert_app
+    image: node:20.10-alpine3.18
+    user: "${DOCKER_USER}:${DOCKER_GROUP}"
+    working_dir: /home/${PROJECT_BASE_USER}/${PROJECT_BASE_NAME}/certbot-${PROJECT_BASE_NAME}/cert-app
+    env_file:
+      - ${PROJECT_ENV_FILE}
+    ports:
+      - 80:80
+    volumes:
+      - ${PROJECT_CERTBOT_PATH}/cert-app:/home/${PROJECT_BASE_USER}/${PROJECT_BASE_NAME}/certbot-${PROJECT_BASE_NAME}/cert-app
+      - ${PROJECT_SHARED_VOLUME_PATH}/secret/certbot/data:/home/${PROJECT_BASE_USER}/${PROJECT_BASE_NAME}/certbot-${PROJECT_BASE_NAME}/cert-app/shared/secret/certbot/data
+    command: >
+      sh -c "yarn install &&
+             yarn global add pm2 &&
+             yarn build &&
+             yarn pm2"

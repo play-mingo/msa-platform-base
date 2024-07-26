@@ -1,0 +1,101 @@
+{
+  "$schema": "https://json.schemastore.org/nest-cli",
+  "collection": "@nestjs/schematics",
+  "sourceRoot": "apps/gateway-app/src",
+  "compilerOptions": {
+    "deleteOutDir": true,
+    "webpack": true,
+    "tsConfigPath": "apps/gateway-app/tsconfig.app.json",
+    "plugins": [
+      {
+        "name": "@nestjs/swagger",
+        "options": {
+          "dtoFileNameSuffix": [
+            ".dto.ts"
+          ],
+          "controllerFileNameSuffix": ".controller.ts",
+          "classValidatorShim": true,
+          "dtoKeyOfComment": "description",
+          "controllerKeyOfComment": "summary",
+          "introspectComments": true
+        }
+      }
+    ]
+  },
+  "monorepo": true,
+  "root": "apps/gateway-app",
+  "projects": {
+    "gateway-app": {
+      "type": "application",
+      "root": "apps/gateway-app",
+      "entryFile": "main",
+      "sourceRoot": "apps/gateway-app/src",
+      "compilerOptions": {
+        "tsConfigPath": "apps/gateway-app/tsconfig.app.json"
+      }
+    },
+    "auth-app": {
+      "type": "application",
+      "root": "apps/auth-app",
+      "entryFile": "main",
+      "sourceRoot": "apps/auth-app/src",
+      "compilerOptions": {
+        "tsConfigPath": "apps/auth-app/tsconfig.app.json"
+      }
+    },
+    "shop-app": {
+      "type": "application",
+      "root": "apps/shop-app",
+      "entryFile": "main",
+      "sourceRoot": "apps/shop-app/src",
+      "compilerOptions": {
+        "tsConfigPath": "apps/shop-app/tsconfig.app.json"
+      }
+    },
+    "user-app": {
+      "type": "application",
+      "root": "apps/user-app",
+      "entryFile": "main",
+      "sourceRoot": "apps/user-app/src",
+      "compilerOptions": {
+        "tsConfigPath": "apps/user-app/tsconfig.app.json"
+      }
+    },
+    "chat-app": {
+      "type": "application",
+      "root": "apps/chat-app",
+      "entryFile": "main",
+      "sourceRoot": "apps/chat-app/src",
+      "compilerOptions": {
+        "tsConfigPath": "apps/chat-app/tsconfig.app.json"
+      }
+    },
+    "cs-app": {
+      "type": "application",
+      "root": "apps/cs-app",
+      "entryFile": "main",
+      "sourceRoot": "apps/cs-app/src",
+      "compilerOptions": {
+        "tsConfigPath": "apps/cs-app/tsconfig.app.json"
+      }
+    },
+    "common-app": {
+      "type": "application",
+      "root": "apps/common-app",
+      "entryFile": "main",
+      "sourceRoot": "apps/common-app/src",
+      "compilerOptions": {
+        "tsConfigPath": "apps/common-app/tsconfig.app.json"
+      }
+    },
+    "order-app": {
+      "type": "application",
+      "root": "apps/order-app",
+      "entryFile": "main",
+      "sourceRoot": "apps/order-app/src",
+      "compilerOptions": {
+        "tsConfigPath": "apps/order-app/tsconfig.app.json"
+      }
+    }
+  }
+}

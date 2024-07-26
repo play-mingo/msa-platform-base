@@ -1,0 +1,29 @@
+version: "3.9"
+services:
+  redis:
+    # 사용할 이미지
+    image: redis:latest
+    # 컨테이너명
+    container_name: project_base_redis
+    # 접근 포트 설정(컨테이너 외부:컨테이너 내부)
+    ports:
+      - ${PROJECT_REDIS_PORT}:6379
+    env_file:
+      - ${PROJECT_ENV_FILE}
+    # extra_hosts:
+    #   - "host.docker.internal:host-gateway"
+    # 스토리지 마운트(볼륨) 설정
+    volumes:
+      - ${PROJECT_REDIS_PATH}/data:/data
+      - ${PROJECT_CONF_FILE}:/usr/local/etc/redis/redis.conf
+    # 컨테이너에 docker label을 이용해서 메타데이터 추가
+    labels:
+      - "name=redis"
+      - "mode=standalone"
+    # 컨테이너 종료시 재시작 여부 설정
+    restart: unless-stopped
+    command: redis-server /usr/local/etc/redis/redis.conf --requirepass ${PROJECT_REDIS_PASSWORD} --bind ${PROJECT_REDIS_BIND} --appendonly yes
+    # command: redis-server /usr/local/etc/redis/redis.conf && redis-server --requirepass ${PROJECT_REDIS_PASSWORD}
+    # networks:
+    #   - backend-network
+    # network_mode: "host"

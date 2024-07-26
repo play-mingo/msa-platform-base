@@ -1,0 +1,19 @@
+version: "3.9"
+services:
+  certbot:
+    container_name: project_base_certbot
+    env_file:
+      - ${PROJECT_ENV_FILE}
+    build:
+      context: ${PROJECT_CERTBOT_PATH}/certbot
+      dockerfile: Dockerfile
+    volumes:
+      - ${PROJECT_SHARED_VOLUME_PATH}/secret/certbot/conf:/etc/letsencrypt
+      - ${PROJECT_SHARED_VOLUME_PATH}/secret/certbot/logs:/var/log/letsencrypt
+      - ${PROJECT_SHARED_VOLUME_PATH}/secret/certbot/data:/var/www/certbot
+      - ${PROJECT_SHARED_VOLUME_PATH}/secret/certbot/cert:/etc/letsencrypt/cert
+      - ${PROJECT_SHARED_VOLUME_PATH}/secret/certbot/trash:/etc/letsencrypt/trash
+    command: sh -c "/usr/local/bin/renew_cert.sh && crond -f"
+    # command: /bin/sh -c "certbot certonly --webroot --webroot-path=/var/www/certbot --agree-tos --no-eff-email -m ${SERVER_ADMIN_EMAIL} -d ${SERVER_DOMAIN}"
+    # depends_on:
+    #   - cert-app

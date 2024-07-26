@@ -1,0 +1,41 @@
+export const SHOP_TOPIC = {
+  FLORIST: {
+    SUMMARY: "shop.florist.summary",
+    SHOP_DETAIL: "shop.florist.shopDetail",
+    SHOP_PRODUCT: "shop.florist.shopProduct",
+    SHOP_REVIEW: "shop.florist.shopReview",
+    SHOP_USER_LIST: "shop.florist.shopUserList",
+    MYPAGE: "shop.florist.mypage",
+    UPDATE_MYPAGE: "shop.florist.updateMypage",
+    UPDATE_SHOP_PRODUCT: "shop.florist.updateShopProduct",
+    ORDER_OPTION: "shop.florist.orderOption",
+    UPDATE_ORDER_OPTION: "shop.florist.updateOrderOption",
+    SHOP_USER: "shop.florist.shopUser",
+    SHOP_USER_DETAIL: "shop.florist.shopUserDetail",
+    UPDATE_SHOP_USER: "shop.florist.updateShopUser",
+  },
+  USER: {
+    SHOP_DETAIL: "shop.user.shopDetail",
+    SHOP_PRODUCT: "shop.user.shopProduct",
+    SHOP_REVIEW: "shop.user.shopReview",
+  },
+};
+
+export const SHOP_TOPICS = [
+  SHOP_TOPIC.FLORIST.SUMMARY,
+  SHOP_TOPIC.FLORIST.SHOP_DETAIL,
+  SHOP_TOPIC.FLORIST.SHOP_PRODUCT,
+  SHOP_TOPIC.FLORIST.SHOP_REVIEW,
+  SHOP_TOPIC.FLORIST.SHOP_USER_LIST,
+  SHOP_TOPIC.FLORIST.MYPAGE,
+  SHOP_TOPIC.FLORIST.UPDATE_MYPAGE,
+  SHOP_TOPIC.FLORIST.UPDATE_SHOP_PRODUCT,
+  SHOP_TOPIC.FLORIST.ORDER_OPTION,
+  SHOP_TOPIC.FLORIST.UPDATE_ORDER_OPTION,
+  SHOP_TOPIC.FLORIST.SHOP_USER,
+  SHOP_TOPIC.FLORIST.SHOP_USER_DETAIL,
+  SHOP_TOPIC.FLORIST.UPDATE_SHOP_USER,
+  SHOP_TOPIC.USER.SHOP_DETAIL,
+  SHOP_TOPIC.USER.SHOP_PRODUCT,
+  SHOP_TOPIC.USER.SHOP_REVIEW,
+];

@@ -1,0 +1,40 @@
+version: "3.9"
+services:
+  msa:
+    container_name: project_base_msa
+    # image: node:20.10-alpine3.18
+    user: "${DOCKER_USER}:${DOCKER_GROUP}"
+    working_dir: /home/${PROJECT_BASE_USER}/${PROJECT_BASE_NAME}/msa-${PROJECT_BASE_NAME}
+    build: 
+      context: .
+    env_file:
+      - ${PROJECT_ENV_FILE}
+    ports:
+      - ${PROJECT_MSA_GATEWAY_HTTP_PORT}:${PROJECT_MSA_GATEWAY_HTTP_PORT}
+      - 443:${PROJECT_MSA_GATEWAY_HTTPS_PORT}
+      - 9092:9092
+
+    # networks:
+    #   - backend-network
+    # network_mode: "host"
+    cap_add:
+      - NET_BIND_SERVICE
+    volumes:
+      - ${PROJECT_MSA_PATH}:/home/${PROJECT_BASE_USER}/${PROJECT_BASE_NAME}/msa-${PROJECT_BASE_NAME}
+      - ${PROJECT_SHARED_VOLUME_PATH}/upload:/home/${PROJECT_BASE_USER}/${PROJECT_BASE_NAME}/msa-${PROJECT_BASE_NAME}/upload
+      - ${PROJECT_SHARED_VOLUME_PATH}/secret/certbot/cert:/home/${PROJECT_BASE_USER}/${PROJECT_BASE_NAME}/msa-${PROJECT_BASE_NAME}/cert
+      - ${PROJECT_SHARED_VOLUME_PATH}/env:/home/${PROJECT_BASE_USER}/${PROJECT_BASE_NAME}/msa-${PROJECT_BASE_NAME}/env
+    # command: >
+    #   sh -c "yarn install &&
+    #          yarn global add pm2 &&
+    #          yarn build:gateway &&
+    #          yarn pm2-authbind:all"
+    
+    # depends_on:
+    #   - mysql
+    #   - mongodb
+    #   - redis
+    #   - zookeeper
+    #   - kafka1
+    #   - kafka2
+    #   - kafka3

@@ -1,0 +1,13 @@
+[
+  {
+    "name": "default",
+    "type": "mysql",
+    "host": "${PROJECT_MYSQL_HOST}",
+    "port": "${PROJECT_MYSQL_PORT}",
+    "username": "${DB_HOST}",
+    "password": "${PROJECT_MYSQL_PASSWORD}",
+    "database": "${PROJECT_MYSQL_DATABASE}",
+    "synchronize": false,
+    "entities": ["entities/*.js"]
+  }
+]
